@@ -1,5 +1,4 @@
-aiogram==2.23.1
-flask
-instagrapi
-pillow
-
+aiogram==3.7.0
+yt-dlp
+python-dotenv
+aiohttp
