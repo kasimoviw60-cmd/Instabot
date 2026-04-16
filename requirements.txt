@@ -1,4 +1,6 @@
 aiogram==3.7.0
-yt-dlp
-python-dotenv
-aiohttp
+yt-dlp>=2025.1.15
+python-dotenv==1.0.1
+aiohttp==3.10.11
+pydantic==2.8.2
+pydantic-core==2.20.1
