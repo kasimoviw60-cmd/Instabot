@@ -5,7 +5,7 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMar
 from flask import Flask
 from threading import Thread
 
-# --- RENDER UCHUN WEB SERVER (BUZMASLIK UCHUN ALOHIDA) ---
+# --- 1. RENDER UCHUN WEB SERVER (BOT O'CHIB QOLMASLIGI UCHUN) ---
 app = Flask('')
 
 @app.route('/')
@@ -50,7 +50,6 @@ def count_users():
         return len(f.read().splitlines())
 
 # --- Tugmalar (Keyboards) ---
-
 def get_main_menu(user_id):
     menu = ReplyKeyboardMarkup(resize_keyboard=True)
     menu.add(KeyboardButton("HASHTAG 📊"), KeyboardButton("NAKRUTKA🎁"))
@@ -131,19 +130,30 @@ async def nakrutka_handler(message: types.Message):
 
 @dp.message_handler(lambda message: message.text == "Admin habar☎️")
 async def admin_contact_handler(message: types.Message):
-    await message.answer("Adminga murojatingiz boʻlsa yozib qoldiring! Yokida @xodim_aka ga yozing!👇")
+    await message.answer("Adminga murojatingiz boʻlsa pastda yozib qoldiring! 👇\n(Xabaringiz avtomatik adminga yuboriladi)")
 
+# --- 2. FOYDALANUVCHILARNI TUGMALARGA YO'NALTIRISH VA ADMINGA XABAR ---
 @dp.message_handler(content_types=['text'])
 async def forward_to_admin(message: types.Message):
+    # Tugmalar ro'yxati
+    main_buttons = ["HASHTAG 📊", "NAKRUTKA🎁", "Admin habar☎️", "STAT 📊"]
+    
+    # Agar foydalanuvchi tugmani bosmasdan nimadir yozsa (masalan, link)
+    if message.text not in main_buttons:
+        # Foydalanuvchiga javob
+        await message.reply("Iltimos, botdan foydalanish uchun tugmalardan foydalaning! 📊\n"
+                             "Heshteg olish yoki Nakrutka boʻlimini tanlang. 👇", 
+                             reply_markup=get_main_menu(message.from_user.id))
+    
+    # Har qanday holatda ham yozilgan matnni adminga nusxasini yuborish
     await bot.send_message(ADMIN_ID, 
-                           f"📩 <b>Yangi xabar!</b>\n\n"
+                           f"📩 <b>Yangi xabar/Link!</b>\n\n"
                            f"👤 Kimdan: @{message.from_user.username}\n"
                            f"🆔 ID: <code>{message.from_user.id}</code>\n"
                            f"📝 Matn: {message.text}")
-    await message.reply("Xabaringiz adminga yetkazildi! ✅")
 
 if __name__ == '__main__':
-    # Render uchun serverni ishga tushiramiz
+    # Render o'chirib qo'ymasligi uchun web-serverni yoqamiz
     keep_alive()
     # Botni ishga tushiramiz
     executor.start_polling(dp, skip_updates=True)
