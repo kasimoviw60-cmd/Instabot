@@ -2,10 +2,29 @@ import logging
 import os
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+from flask import Flask
+from threading import Thread
+
+# --- RENDER UCHUN WEB SERVER (BUZMASLIK UCHUN ALOHIDA) ---
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Bot ishlayapti!"
+
+def run():
+    # Render PORT muhit o'zgaruvchisini beradi, bo'lmasa 10000 ishlatiladi
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+# -------------------------------------------------------
 
 # Bot sozlamalari
 API_TOKEN = '8618465943:AAGhxllucMhyGQOBXmQy9-dFL88lGV9r-CA'
-ADMIN_ID = 6052580480  # O'zingizning Telegram ID raqamingizni yozing
+ADMIN_ID = 6052580480 
 CHANNEL_ID = "@instagram_kasimov"
 
 logging.basicConfig(level=logging.INFO)
@@ -36,7 +55,6 @@ def get_main_menu(user_id):
     menu = ReplyKeyboardMarkup(resize_keyboard=True)
     menu.add(KeyboardButton("HASHTAG 📊"), KeyboardButton("NAKRUTKA🎁"))
     menu.add(KeyboardButton("Admin habar☎️"))
-    # Agar foydalanuvchi admin bo'lsa, STAT tugmasini qo'shish
     if user_id == ADMIN_ID:
         menu.add(KeyboardButton("STAT 📊"))
     return menu
@@ -67,7 +85,7 @@ async def is_subscribed(user_id):
 
 @dp.message_handler(commands=['start'])
 async def start_command(message: types.Message):
-    add_user(message.from_user.id) # Foydalanuvchini bazaga qo'shish
+    add_user(message.from_user.id)
     
     if await is_subscribed(message.from_user.id):
         text = (
@@ -89,7 +107,6 @@ async def check_callback(call: types.CallbackQuery):
     else:
         await call.answer("Siz hali a'zo bo'lmadingiz! ❌", show_alert=True)
 
-# Admin uchun Statistika
 @dp.message_handler(lambda message: message.text == "STAT 📊")
 async def stat_handler(message: types.Message):
     if message.from_user.id == ADMIN_ID:
@@ -118,7 +135,6 @@ async def admin_contact_handler(message: types.Message):
 
 @dp.message_handler(content_types=['text'])
 async def forward_to_admin(message: types.Message):
-    # Agar foydalanuvchi adminga xabar yozsa
     await bot.send_message(ADMIN_ID, 
                            f"📩 <b>Yangi xabar!</b>\n\n"
                            f"👤 Kimdan: @{message.from_user.username}\n"
@@ -127,5 +143,8 @@ async def forward_to_admin(message: types.Message):
     await message.reply("Xabaringiz adminga yetkazildi! ✅")
 
 if __name__ == '__main__':
+    # Render uchun serverni ishga tushiramiz
+    keep_alive()
+    # Botni ishga tushiramiz
     executor.start_polling(dp, skip_updates=True)
     
