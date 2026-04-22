@@ -1,90 +1,131 @@
+import logging
 import os
-import asyncio
-from aiohttp import web
+from aiogram import Bot, Dispatcher, executor, types
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
-from aiogram import Bot, Dispatcher, F
-from aiogram.types import Message, FSInputFile
-from aiogram.filters import CommandStart
-import yt_dlp
+# Bot sozlamalari
+API_TOKEN = '8618465943:AAGhxllucMhyGQOBXmQy9-dFL88lGV9r-CA'
+ADMIN_ID = 6052580480  # O'zingizning Telegram ID raqamingizni yozing
+CHANNEL_ID = "@instagram_kasimov"
 
-# ======================
-# TOKEN
-# ======================
-TOKEN = "8618465943:AAERniDYzZn1C5ujZVcJEEfJd21iOjoMh9g"
+logging.basicConfig(level=logging.INFO)
+bot = Bot(token=API_TOKEN, parse_mode="HTML")
+dp = Dispatcher(bot)
 
-bot = Bot(token=TOKEN)
-dp = Dispatcher()
+# --- Ma'lumotlar bazasi (Oddiy fayl tizimi) ---
+def add_user(user_id):
+    if not os.path.exists("users.txt"):
+        with open("users.txt", "w") as f:
+            f.write(f"{user_id}\n")
+    else:
+        with open("users.txt", "r") as f:
+            users = f.read().splitlines()
+        if str(user_id) not in users:
+            with open("users.txt", "a") as f:
+                f.write(f"{user_id}\n")
 
+def count_users():
+    if not os.path.exists("users.txt"):
+        return 0
+    with open("users.txt", "r") as f:
+        return len(f.read().splitlines())
 
-# ======================
-# START COMMAND
-# ======================
-@dp.message(CommandStart())
-async def start(message: Message):
-    await message.answer("Instagram link yubor 📩")
+# --- Tugmalar (Keyboards) ---
 
+def get_main_menu(user_id):
+    menu = ReplyKeyboardMarkup(resize_keyboard=True)
+    menu.add(KeyboardButton("HASHTAG 📊"), KeyboardButton("NAKRUTKA🎁"))
+    menu.add(KeyboardButton("Admin habar☎️"))
+    # Agar foydalanuvchi admin bo'lsa, STAT tugmasini qo'shish
+    if user_id == ADMIN_ID:
+        menu.add(KeyboardButton("STAT 📊"))
+    return menu
 
-# ======================
-# VIDEO DOWNLOAD HANDLER
-# ======================
-@dp.message(F.text)
-async def download_video(message: Message):
-    url = message.text.strip()
+hashtag_inline = InlineKeyboardMarkup(row_width=1).add(
+    InlineKeyboardButton("Heshteg olish", url="https://instaspeeder.com/copy-instagram-caption/"),
+    InlineKeyboardButton("Qoʻllanma📑", url="https://t.me/instagram_kasimov")
+)
 
-    if "instagram.com" not in url:
-        return await message.answer("Faqat Instagram link yubor!")
+nakrutka_inline = InlineKeyboardMarkup().add(
+    InlineKeyboardButton("Nakrutka urish📌", url="https://leofame.com/free-instagram-views")
+)
 
-    await message.answer("Yuklanmoqda ⏳")
+check_sub_inline = InlineKeyboardMarkup().add(
+    InlineKeyboardButton("Kanalga a'zo bo'lish", url=f"https://t.me/{CHANNEL_ID[1:]}"),
+    InlineKeyboardButton("Tekshirish ✅", callback_data="check_subs")
+)
 
-    file_name = f"video_{message.from_user.id}.mp4"
-
-    ydl_opts = {
-        "outtmpl": file_name,
-        "format": "best",
-        "quiet": True
-    }
-
+# --- Funksiyalar ---
+async def is_subscribed(user_id):
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
+        member = await bot.get_chat_member(chat_id=CHANNEL_ID, user_id=user_id)
+        return member.status in ["member", "administrator", "creator"]
+    except:
+        return False
 
-        caption = info.get("description", "Instagram video")[:1000]
+# --- Handlerlar ---
 
-        video = FSInputFile(file_name)
-        await message.answer_video(video=video, caption=caption)
+@dp.message_handler(commands=['start'])
+async def start_command(message: types.Message):
+    add_user(message.from_user.id) # Foydalanuvchini bazaga qo'shish
+    
+    if await is_subscribed(message.from_user.id):
+        text = (
+            "Assalomu alaykum! 👋\n\n"
+            "Botimiz orqali oʻzingiz hohlagan TOP dagi heshteglarni olishingiz mumkin! 📊\n\n"
+            "Va yangi bepul nakrutka boʻlimini ham sizga sovgʻa sifatida qoʻshdik! 😍\n\n"
+            "Tugmalardan foydalanib oʻzingizga keraklisini tanlang! 👇"
+        )
+        await message.answer(text, reply_markup=get_main_menu(message.from_user.id))
+    else:
+        await message.answer(f"Botdan foydalanish uchun {CHANNEL_ID} kanaliga obuna bo'lishingiz shart!", 
+                             reply_markup=check_sub_inline)
 
-        os.remove(file_name)
+@dp.callback_query_handler(text="check_subs")
+async def check_callback(call: types.CallbackQuery):
+    if await is_subscribed(call.from_user.id):
+        await call.message.delete()
+        await start_command(call.message)
+    else:
+        await call.answer("Siz hali a'zo bo'lmadingiz! ❌", show_alert=True)
 
-    except Exception as e:
-        await message.answer("Video yuklab bo‘lmadi ❌")
+# Admin uchun Statistika
+@dp.message_handler(lambda message: message.text == "STAT 📊")
+async def stat_handler(message: types.Message):
+    if message.from_user.id == ADMIN_ID:
+        total = count_users()
+        await message.answer(f"📊 <b>Bot statistikasi:</b>\n\n"
+                             f"👥 Jami foydalanuvchilar: <b>{total} ta</b>\n"
+                             f"📢 Kanal: {CHANNEL_ID}", parse_mode="HTML")
 
+@dp.message_handler(lambda message: message.text == "HASHTAG 📊")
+async def hashtag_handler(message: types.Message):
+    await message.answer("Heshteg olish uchun pastdagi tugmani bosing va video LINK ni yuboring! 👇",
+                         reply_markup=hashtag_inline)
 
-# ======================
-# WEB SERVER (Render uchun)
-# ======================
-async def handle(request):
-    return web.Response(text="Bot is running")
+@dp.message_handler(lambda message: message.text == "NAKRUTKA🎁")
+async def nakrutka_handler(message: types.Message):
+    text = ("Nakrutka bonuslarimiz!🎉\n"
+            "Har xil nakrutkalar mavjud! \n"
+            "2000+ koʻrishlar va barcha xizmatlar! 👨🏻‍💻\n"
+            "Har kuni bepul limit! ⏳♻️\n"
+            "Pastagi tugmani bosing! Batafsil👇")
+    await message.answer(text, reply_markup=nakrutka_inline)
 
-async def web_server():
-    app = web.Application()
-    app.router.add_get("/", handle)
+@dp.message_handler(lambda message: message.text == "Admin habar☎️")
+async def admin_contact_handler(message: types.Message):
+    await message.answer("Adminga murojatingiz boʻlsa yozib qoldiring! Yokida @xodim_aka ga yozing!👇")
 
-    runner = web.AppRunner(app)
-    await runner.setup()
+@dp.message_handler(content_types=['text'])
+async def forward_to_admin(message: types.Message):
+    # Agar foydalanuvchi adminga xabar yozsa
+    await bot.send_message(ADMIN_ID, 
+                           f"📩 <b>Yangi xabar!</b>\n\n"
+                           f"👤 Kimdan: @{message.from_user.username}\n"
+                           f"🆔 ID: <code>{message.from_user.id}</code>\n"
+                           f"📝 Matn: {message.text}")
+    await message.reply("Xabaringiz adminga yetkazildi! ✅")
 
-    port = int(os.environ.get("PORT", 8080))
-    site = web.TCPSite(runner, "0.0.0.0", port)
-
-    await site.start()
-
-
-# ======================
-# MAIN
-# ======================
-async def main():
-    asyncio.create_task(web_server())
-    await dp.start_polling(bot)
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
+if __name__ == '__main__':
+    executor.start_polling(dp, skip_updates=True)
+    
