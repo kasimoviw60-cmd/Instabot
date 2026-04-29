@@ -59,7 +59,7 @@ def get_main_menu(user_id):
     return menu
 
 hashtag_inline = InlineKeyboardMarkup(row_width=1).add(
-    InlineKeyboardButton("Heshteg olish", url="https://instaspeeder.com/copy-instagram-caption/"),
+    InlineKeyboardButton("Heshteg olish", url="https://snaplytics.io/instagram-caption-copy/"),
     InlineKeyboardButton("Qoʻllanma📑", url="https://t.me/instagram_kasimov")
 )
 
